@@ -2,122 +2,109 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
+using devTest_NikitaOvechenko_client.Helpers;
+using devTest_NikitaOvechenko_client.Models;
 using Newtonsoft.Json;
 
 namespace devTest_NikitaOvechenko_client
 {
     internal class Program
     {
-        const string _odata4Postfix = "/0/odata";
-        const string _authPostfix = "/ServiceModel/AuthService.svc/Login";
-        const string _authHeader = "BPMCSRF";
-        const string _odataQueryTemplate = "/Account?$count=true&$filter=contains(Name,{0})";
-
-        const string _DoOdataQuery = "odata";
-        const string _DoSvcQuery = "svc";
-
-        static HttpClient _client;
-        static CookieContainer _cookies;
         static string _endpoint;
         static Credentials _credentials;
-        static string _inputString;
 
+        const string _defaultUsername = "Supervisor";
+        const string _defaultPassword = "Supervisor";
 
+        const string _option0 = "0";
+        const string _option1 = "1";
+        const string _defaultOption = "0";
+        const string _doOdataRequest = _option0;
+
+        static StandType _standType;
 
         static void Main(string[] args)
         {
-            Initialize();
+            Console.OutputEncoding = Encoding.UTF8;
 
             // Можно расширить до ручного ввода
-            _inputString = "A";
+            var inputString = "А";
+            
+            AskStandType();
+            AskEndpoint();
+            AskCredentials();
 
-            Console.WriteLine("Введи адрес приложения (для .Net Framework без /0). Пример: http://localhost:215");
-            _endpoint = Console.ReadLine();
+            var whatToDo = AskWhatToDo();
 
-            Console.Write("Введи логин: ");
-            var username = Console.ReadLine();
-            Console.Write("Введи пароль: ");
-            var password = Console.ReadLine();
-            _credentials = new Credentials() { UserName = username, UserPassword = password };
+            RequestHelper helper = whatToDo == _doOdataRequest
+                ? new OdataRequestHelper(_standType, _endpoint, _credentials)
+                : new ServiceRequestHelper(_standType, _endpoint, _credentials);
 
-            var whatToDo = string.Empty;
-            while (whatToDo != "odata" && whatToDo != "svc")
+            var result = helper.GetAccountsWithNamePartCount(inputString);
+
+            Console.WriteLine($"Результат: {result}");
+        }
+
+        static void AskEndpoint()
+        {
+            if (_standType == StandType.NetFramework)
             {
-                Console.Write("Введи, что ты хочешь сделать (odata/svc): ");
-                whatToDo = Console.ReadLine();
-            }
-
-            int result;
-            if (whatToDo == "odata")
-            {
-                result = DoOdataQuery();
+                Console.WriteLine("Введи адрес приложения (без /0). Пример: http://localhost:215");
             }
             else
             {
-                result = DoSvcQuery();
+                Console.WriteLine("Введи адрес приложения. Пример: http://localhost:215");
             }
-            Console.WriteLine(result);
+
+            _endpoint = Console.ReadLine();
         }
 
-        static void Initialize()
+        static void AskCredentials()
         {
-            Console.OutputEncoding = Encoding.UTF8;
-            _cookies = new CookieContainer();
-            HttpClientHandler handler = new HttpClientHandler();
-            handler.CookieContainer = _cookies;
-            _client = new HttpClient(handler);
+            Console.WriteLine($"Введи логин (если оставить пустым, будет {_defaultUsername})");
+            var username = Console.ReadLine();
+            Console.WriteLine($"Введи пароль (если оставить пустым, будет {_defaultPassword})");
+            var password = Console.ReadLine();
+
+            username = EnsureFilled(username, _defaultUsername);
+            password = EnsureFilled(password, _defaultPassword);
+
+            _credentials = new Credentials() { UserName = username, UserPassword = password };
         }
 
-        private static int DoOdataQuery()
+        static void AskStandType()
         {
-            var query = string.Format(_odataQueryTemplate, _inputString);
-            var uri = new Uri(_endpoint + _odata4Postfix + query);
-
-            var request = new HttpRequestMessage(
-                HttpMethod.Get,
-                uri);
-
-            var authHeaderValue = Authenticate();
-            request.Headers.Add(_authHeader, authHeaderValue);
-
-            var response = _client.Send(request);
-            response.EnsureSuccessStatusCode();
-
-            Console.WriteLine(authHeaderValue);
-            Console.WriteLine(response.Content.ReadAsStringAsync().Result);
+            var standType = AskOptional("Введи тип стенда ('{0}' для .Net Framework / '{1}' для .Net Core)");
+            _standType = (StandType)int.Parse(standType);
         }
 
-        private static int DoSvcQuery()
+        static string AskWhatToDo()
         {
-            throw new NotImplementedException();
+            return AskOptional("Введи, что хочешь сделать ('{0}' для OData / '{1}' для веб-сервиса)");
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        private static string Authenticate()
+        static string AskOptional(string ask)
         {
-            var a = JsonConvert.SerializeObject(_credentials);
-            var content = new StringContent(
-                JsonConvert.SerializeObject(_credentials),
-                null,
-                "application/json");
-            var uri = new Uri(_endpoint + _authPostfix);
+            var answer = string.Empty;
 
-            var request = new HttpRequestMessage
+            do
             {
-                Method = HttpMethod.Post,
-                RequestUri = uri,
-                Content = content
-            };
+                var formatedAsk = string.Format(ask, _option0, _option1);
+                Console.WriteLine(formatedAsk);
+                Console.WriteLine($"(если оставить пустым, будет '{_defaultOption}')");
+                answer = Console.ReadLine();
+            }
+            while (answer != _option0 && answer != _option1 && answer != string.Empty);
 
-            var response = _client.Send(request);
-            response.EnsureSuccessStatusCode();
+            answer = EnsureFilled(answer, _defaultOption);
+            return answer;
+        }
 
-            return _cookies
-                .GetCookies(uri)
-                .First(c => c.Name == _authHeader)
-                .Value;
+        static string EnsureFilled(string value, string defaultValue)
+        {
+            return string.IsNullOrEmpty(value)
+                ? defaultValue
+                : value;
         }
     }
 }

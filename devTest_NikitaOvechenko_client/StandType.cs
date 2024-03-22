@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace devTest_NikitaOvechenko_client
 {
-    internal class Credentials
+    public enum StandType
     {
-        public string UserName { get; set; }
-        public string UserPassword { get; set; }
+        NetFramework,
+        NetCore
     }
 }
