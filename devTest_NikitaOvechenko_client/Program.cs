@@ -18,8 +18,8 @@ namespace devTest_NikitaOvechenko_client
 
         const string _option0 = "0";
         const string _option1 = "1";
-        const string _defaultOption = "0";
-        const string _doOdataRequest = _option0;
+        const string _defaultOption = _option0;
+        const string _doOdataRequest = _option0; 
 
         static StandType _standType;
 
@@ -27,7 +27,7 @@ namespace devTest_NikitaOvechenko_client
         {
             Console.OutputEncoding = Encoding.UTF8;
 
-            // Можно расширить до ручного ввода
+            // Русская "А"
             var inputString = "А";
             
             AskStandType();
